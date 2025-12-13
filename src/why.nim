@@ -66,7 +66,7 @@ proc resolveSymlinkChain(path: string): string =
   return current
 
 proc detectProviderByPath(originPath, realPath: string): string =
-  let checkPaths = @[realPath.toLowerAscii(), originPath.toLowerAscii()]
+  let checkPaths = @[realPath, originPath]
   let rules = getRules()
   
   for rule in rules:
@@ -111,7 +111,7 @@ proc findFlatpakFallback(shortName: string): string =
     for kind, path in walkDir(dir):
       if kind == pcFile or kind == pcLinkToFile:
         let filename = extractFilename(path).toLowerAscii()
-        if query in filename:
+        if filename == query or filename.endsWith("." & query):
           return path
   return ""
 
@@ -130,7 +130,7 @@ proc why(commandName: string) =
   else:
     originPath = findExe(commandName)
     
-    if originPath.len == 0:
+    if originPath.len == 0 or extractFilename(originPath) != commandName:
       let flatpakPath = findFlatpakFallback(commandName)
       if flatpakPath.len > 0:
         echo "Hint: Command '" & commandName & "' not found in PATH, but found '" & extractFilename(flatpakPath) & "' in Flatpak."

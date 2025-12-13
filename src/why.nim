@@ -49,8 +49,6 @@ proc getRules(): seq[ProviderRule] =
     ])
   ]
 
-# --- Helper Functions ---
-
 proc absoluteNormalized(path: string): string =
   if path.len == 0: return path
   return normalizedPath(absolutePath(path))
@@ -70,20 +68,21 @@ proc resolveSymlinkChain(path: string): string =
 proc detectProviderByPath(originPath, realPath: string): string =
   let checkPaths = @[realPath.toLowerAscii(), originPath.toLowerAscii()]
   let rules = getRules()
-
+  
   for rule in rules:
     for path in checkPaths:
       if path.len == 0: continue
+      
       for pattern in rule.patterns:
         case rule.kind
         of mkContains:
           if pattern in path: return rule.name
         of mkStartsWith:
-          if path.startsWith(pattern):
+          if path.startsWith(pattern): 
             return rule.name
+            
   return "Unknown"
 
-# Query system package managers for system-installed binaries.
 proc checkSystemPackageManager(path: string): string =
   if findExe("dpkg").len > 0:
     let (outp, exitCode) = execCmdEx("dpkg -S " & quoteShell(path))
@@ -96,7 +95,24 @@ proc checkSystemPackageManager(path: string): string =
     let (outp, exitCode) = execCmdEx("rpm -qf " & quoteShell(path))
     if exitCode == 0:
       return "yum/rpm (" & outp.strip() & ")"
+  
+  return ""
 
+proc findFlatpakFallback(shortName: string): string =
+  let searchDirs = @[
+    "/var/lib/flatpak/exports/bin",
+    getHomeDir() / ".local/share/flatpak/exports/bin"
+  ]
+  let query = shortName.toLowerAscii()
+
+  for dir in searchDirs:
+    if not dirExists(dir): continue
+    
+    for kind, path in walkDir(dir):
+      if kind == pcFile or kind == pcLinkToFile:
+        let filename = extractFilename(path).toLowerAscii()
+        if query in filename:
+          return path
   return ""
 
 proc showResult(commandName, originPath, realPath, provider: string) =
@@ -107,15 +123,22 @@ proc showResult(commandName, originPath, realPath, provider: string) =
 
 proc why(commandName: string) =
   var originPath: string
-
+  
   if commandName == "why":
     echo "Checking self-identity..."
     originPath = absoluteNormalized(getAppFilename())
   else:
     originPath = findExe(commandName)
+    
     if originPath.len == 0:
-      stderr.writeLine "Error: command '" & commandName & "' not found."
-      quit 1
+      let flatpakPath = findFlatpakFallback(commandName)
+      if flatpakPath.len > 0:
+        echo "Hint: Command '" & commandName & "' not found in PATH, but found '" & extractFilename(flatpakPath) & "' in Flatpak."
+        originPath = flatpakPath
+      else:
+        stderr.writeLine "Error: command '" & commandName & "' not found."
+        quit 1
+        
     originPath = absoluteNormalized(originPath)
 
   let realPath = resolveSymlinkChain(originPath)
@@ -127,8 +150,6 @@ proc why(commandName: string) =
       provider = sysInfo
 
   showResult(commandName, originPath, realPath, provider)
-
-# --- Entry Point ---
 
 when isMainModule:
   let rawArgs = commandLineParams()

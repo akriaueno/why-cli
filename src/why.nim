@@ -1,4 +1,4 @@
-import os, strutils, sets
+import os, strutils, sets, osproc
 import cligen
 
 type
@@ -11,30 +11,45 @@ type
     kind: MatchKind
     patterns: seq[string]
 
-const rules: seq[ProviderRule] = @[
-  ProviderRule(name: "Homebrew", kind: mkContains, patterns: @[
-    "/opt/homebrew", "/usr/local/cellar",
-    "/home/linuxbrew/.linuxbrew", "/.linuxbrew/cellar", "/.linuxbrew/caskroom"
-  ]),
-  ProviderRule(name: "Mise", kind: mkContains, patterns: @[
-    "mise/shims", ".local/share/mise"
-  ]),
-  ProviderRule(name: "Cargo", kind: mkContains, patterns: @[
-    ".cargo/bin"
-  ]),
-  ProviderRule(name: "npm (Global)", kind: mkContains, patterns: @[
-    "node_modules", "/npm", "npm/"
-  ]),
-  ProviderRule(name: "Volta", kind: mkContains, patterns: @[
-    ".volta"
-  ]),
-  ProviderRule(name: "Go", kind: mkContains, patterns: @[
-    "go/bin"
-  ]),
-  ProviderRule(name: "System", kind: mkStartsWith, patterns: @[
-    "/bin", "/usr/bin", "/sbin", "/usr/sbin"
-  ])
-]
+# --- Rules Configuration ---
+proc getRules(): seq[ProviderRule] =
+  return @[
+    ProviderRule(name: "Homebrew", kind: mkContains, patterns: @[
+      "/opt/homebrew", "/usr/local/cellar",
+      "/home/linuxbrew/.linuxbrew", "/.linuxbrew/cellar", "/.linuxbrew/caskroom"
+    ]),
+    ProviderRule(name: "Flatpak", kind: mkStartsWith, patterns: @[
+      "/var/lib/flatpak/exports/bin",
+      getHomeDir() / ".local/share/flatpak/exports/bin"
+    ]),
+    ProviderRule(name: "Mise", kind: mkContains, patterns: @[
+      "mise/shims", ".local/share/mise"
+    ]),
+    ProviderRule(name: "Snap", kind: mkContains, patterns: @[
+      "/snap/", "snap/bin"
+    ]),
+    ProviderRule(name: "Cargo", kind: mkContains, patterns: @[
+      ".cargo/bin"
+    ]),
+    ProviderRule(name: "npm", kind: mkContains, patterns: @[
+      "node_modules", "/npm", "npm/"
+    ]),
+    ProviderRule(name: "pip", kind: mkContains, patterns: @[
+      "site-packages", "dist-packages", "/pipx/", ".local/bin/pipx",
+      "/bin/pip", "/bin/pip3"
+    ]),
+    ProviderRule(name: "Volta", kind: mkContains, patterns: @[
+      ".volta"
+    ]),
+    ProviderRule(name: "Go", kind: mkContains, patterns: @[
+      "go/bin"
+    ]),
+    ProviderRule(name: "System", kind: mkStartsWith, patterns: @[
+      "/bin", "/usr/bin", "/sbin", "/usr/sbin"
+    ])
+  ]
+
+# --- Helper Functions ---
 
 proc absoluteNormalized(path: string): string =
   if path.len == 0: return path
@@ -52,22 +67,37 @@ proc resolveSymlinkChain(path: string): string =
     current = normalizedPath(target)
   return current
 
-proc detectProvider(originPath, realPath: string): string =
+proc detectProviderByPath(originPath, realPath: string): string =
   let checkPaths = @[realPath.toLowerAscii(), originPath.toLowerAscii()]
-  
+  let rules = getRules()
+
   for rule in rules:
     for path in checkPaths:
       if path.len == 0: continue
-      
       for pattern in rule.patterns:
         case rule.kind
         of mkContains:
           if pattern in path: return rule.name
         of mkStartsWith:
-          if path.startsWith(pattern & "/") or path == pattern:
+          if path.startsWith(pattern):
             return rule.name
-            
   return "Unknown"
+
+# Query system package managers for system-installed binaries.
+proc checkSystemPackageManager(path: string): string =
+  if findExe("dpkg").len > 0:
+    let (outp, exitCode) = execCmdEx("dpkg -S " & quoteShell(path))
+    if exitCode == 0:
+      let parts = outp.split(":")
+      if parts.len > 0:
+        return "apt/dpkg (" & parts[0].strip() & ")"
+
+  if findExe("rpm").len > 0:
+    let (outp, exitCode) = execCmdEx("rpm -qf " & quoteShell(path))
+    if exitCode == 0:
+      return "yum/rpm (" & outp.strip() & ")"
+
+  return ""
 
 proc showResult(commandName, originPath, realPath, provider: string) =
   echo "Command:     ", commandName
@@ -77,7 +107,7 @@ proc showResult(commandName, originPath, realPath, provider: string) =
 
 proc why(commandName: string) =
   var originPath: string
-  
+
   if commandName == "why":
     echo "Checking self-identity..."
     originPath = absoluteNormalized(getAppFilename())
@@ -89,7 +119,13 @@ proc why(commandName: string) =
     originPath = absoluteNormalized(originPath)
 
   let realPath = resolveSymlinkChain(originPath)
-  let provider = detectProvider(originPath, realPath)
+  var provider = detectProviderByPath(originPath, realPath)
+
+  if provider == "System" or provider == "Unknown":
+    let sysInfo = checkSystemPackageManager(realPath)
+    if sysInfo.len > 0:
+      provider = sysInfo
+
   showResult(commandName, originPath, realPath, provider)
 
 # --- Entry Point ---

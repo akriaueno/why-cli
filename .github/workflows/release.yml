@@ -14,32 +14,32 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target_os: linux
             cpu: amd64
             archive_name: why-linux-amd64
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target_os: linux
             cpu: arm64
             archive_name: why-linux-arm64
             install_cross: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
             nim_flags: --cpu:arm64 --os:linux --gcc.exe:aarch64-linux-gnu-gcc --gcc.linkerexe:aarch64-linux-gnu-gcc
-          - os: macos-13
+          - os: macos-15-intel
             target_os: darwin
             cpu: amd64
             archive_name: why-darwin-amd64
-          - os: macos-14
+          - os: macos-15
             target_os: darwin
             cpu: arm64
             archive_name: why-darwin-arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Nim
-        uses: jiro4989/setup-nim-action@v1
+        uses: jiro4989/setup-nim-action@v2
         with:
-          nim-version: '2.0.0'
+          nim-version: '2.2.6'
 
       - name: Install Dependencies
         run: nimble install -y cligen

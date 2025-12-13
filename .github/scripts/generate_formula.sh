@@ -11,12 +11,11 @@ CLEAN_VERSION="${VERSION#v}"
 
 cat <<EOF
 class Why < Formula
-  desc "Why are you in my computer?"
+  desc "Show where a command on your system really comes from"
   homepage "https://github.com/akriaueno/why-cli"
   url "${URL}"
   sha256 "${SHA256}"
   license "MIT"
-  version "${CLEAN_VERSION}"
 
   depends_on "nim" => :build
 

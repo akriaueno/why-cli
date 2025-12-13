@@ -149,7 +149,12 @@ proc why(commandName: string) =
   
   if commandName == "why":
     echo "Checking self-identity..."
-    originPath = absoluteNormalizedNoSymlink(getAppFilename())
+    originPath = findOriginPath(commandName)
+    if originPath.len == 0:
+      # Fallback to the invocation path if PATH lookup fails
+      let invoked = paramStr(0)
+      if invoked.len > 0 and (fileExists(invoked) or symlinkExists(invoked)):
+        originPath = absoluteNormalizedNoSymlink(invoked)
   else:
     originPath = findOriginPath(commandName)
     

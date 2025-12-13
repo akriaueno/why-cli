@@ -53,6 +53,29 @@ proc absoluteNormalized(path: string): string =
   if path.len == 0: return path
   return normalizedPath(absolutePath(path))
 
+# Make absolute + normalized path without resolving symlinks (keep "Origin" as shell sees it).
+proc absoluteNormalizedNoSymlink(path: string): string =
+  if path.len == 0: return path
+  if isAbsolute(path):
+    return normalizedPath(path)
+  else:
+    return normalizedPath(getCurrentDir() / path)
+
+proc findOriginPath(commandName: string): string =
+  # If user passed an explicit path, honor it without PATH lookup.
+  if commandName.contains(DirSep):
+    if fileExists(commandName) or symlinkExists(commandName):
+      return absoluteNormalizedNoSymlink(commandName)
+    return ""
+
+  for dir in getEnv("PATH").split(PathSep):
+    if dir.len == 0: continue
+    let candidate = dir / commandName
+    if fileExists(candidate) or symlinkExists(candidate):
+      return absoluteNormalizedNoSymlink(candidate)
+
+  ""
+
 proc resolveSymlinkChain(path: string): string =
   var current = path
   var visited = initHashSet[string]()
@@ -126,20 +149,20 @@ proc why(commandName: string) =
   
   if commandName == "why":
     echo "Checking self-identity..."
-    originPath = absoluteNormalized(getAppFilename())
+    originPath = absoluteNormalizedNoSymlink(getAppFilename())
   else:
-    originPath = findExe(commandName)
+    originPath = findOriginPath(commandName)
     
     if originPath.len == 0 or extractFilename(originPath) != commandName:
       let flatpakPath = findFlatpakFallback(commandName)
       if flatpakPath.len > 0:
         echo "Hint: Command '" & commandName & "' not found in PATH, but found '" & extractFilename(flatpakPath) & "' in Flatpak."
-        originPath = flatpakPath
+        originPath = absoluteNormalizedNoSymlink(flatpakPath)
       else:
         stderr.writeLine "Error: command '" & commandName & "' not found."
         quit 1
         
-    originPath = absoluteNormalized(originPath)
+    originPath = absoluteNormalizedNoSymlink(originPath)
 
   let realPath = resolveSymlinkChain(originPath)
   var provider = detectProviderByPath(originPath, realPath)

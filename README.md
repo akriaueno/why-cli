@@ -1,4 +1,4 @@
-# Why are you in my computer? (`why`)
+# Why are you in my computer? 
 
 **"Why is this command here? Who installed it?"**
 

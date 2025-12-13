@@ -57,18 +57,18 @@ It clearly shows which version manager is controlling the command.
 ```bash
 $ why node
 Command:     node
-Provider:    Mise
-Origin Path: /home/user/.local/share/mise/installs/node/24.4.1/bin/node
-Real Path:   /home/user/.local/share/mise/installs/node/24.4.1/bin/node
+Provider:    Homebrew
+Origin Path: /home/linuxbrew/.linuxbrew/bin/node
+Real Path:   /home/linuxbrew/.linuxbrew/Cellar/node/25.2.1/bin/node
 ```
 
 ### 2. System Packages (apt/dpkg)
 It queries `dpkg` to find the package name.
 
 ```bash
-$ why docker
+ $ why docker
 Command:     docker
-Provider:    apt/dpkg (docker.io)
+Provider:    apt/dpkg (docker-ce-cli)
 Origin Path: /usr/bin/docker
 Real Path:   /usr/bin/docker
 ```

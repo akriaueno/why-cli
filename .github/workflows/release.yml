@@ -123,4 +123,106 @@ jobs:
           else
             git commit -m "Update why formula to ${{ github.ref_name }} (source build)"
             git push origin main
+  bottle:
+    needs: update-homebrew
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-15
+            runner_os: macOS
+          - os: macos-15-intel
+            runner_os: macOS
+          - os: ubuntu-24.04
+            runner_os: Linux
+
+    steps:
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: akriaueno/homebrew-tap
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          path: homebrew-tap
+
+      - name: Install Homebrew (Linux)
+        if: matrix.runner_os == 'Linux'
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+          echo "/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
+
+      - name: Setup Homebrew environment
+        run: |
+          if [ "${{ matrix.runner_os }}" = "Linux" ]; then
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          else
+            eval "$(brew shellenv)"
           fi
+          echo "$HOMEBREW_PREFIX/bin" >> $GITHUB_PATH
+          echo "$HOMEBREW_PREFIX/sbin" >> $GITHUB_PATH
+
+      - name: Build bottle
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          ROOT_URL="https://github.com/akriaueno/why-cli/releases/download/${TAG_NAME}"
+          brew update
+          brew tap akriaueno/tap
+          brew install --build-bottle akriaueno/tap/why
+          brew bottle --root-url="$ROOT_URL" --json akriaueno/tap/why
+
+      - name: Upload bottle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottles-${{ matrix.os }}
+          path: |
+            *.bottle.tar.gz
+            *.bottle.json
+
+  merge-bottles:
+    needs: bottle
+    runs-on: macos-15
+    steps:
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: akriaueno/homebrew-tap
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          path: homebrew-tap
+
+      - name: Download bottle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bottles-*
+          merge-multiple: true
+          path: bottles
+
+      - name: Merge bottle JSON into formula
+        working-directory: homebrew-tap
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          ROOT_URL="https://github.com/akriaueno/why-cli/releases/download/${TAG_NAME}"
+          brew update
+          brew tap akriaueno/tap
+          brew bottle --merge --write --no-commit --root-url="$ROOT_URL" ../bottles/*.bottle.json
+
+      - name: Commit bottle block
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No changes to commit."
+          else
+            git add .
+            git commit -m "Add bottles for ${{ github.ref_name }}"
+            git push origin main
+          fi
+
+      - name: Upload bottles to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release upload "${TAG_NAME}" bottles/*.bottle.tar.gz --clobber

@@ -37,24 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Cache Nim compiler
-        id: cache-nim
-        uses: actions/cache@v4
-        with:
-          path: .nim_runtime
-          key: nim-2.2.6-${{ matrix.os }}-${{ matrix.cpu }}
-
       - name: Install Nim
-        if: steps.cache-nim.outputs.cache-hit != 'true'
         uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: '2.2.6'
-          nim-install-directory: .nim_runtime
-
-      - name: Add Nim to PATH
-        run: |
-          echo "$PWD/.nim_runtime/bin" >> "$GITHUB_PATH"
-          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
 
       - name: Install Dependencies
         run: nimble install -y cligen

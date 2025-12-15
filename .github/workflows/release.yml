@@ -2,6 +2,8 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - develop
     tags:
       - 'v*'
 
@@ -43,6 +45,8 @@ jobs:
         with:
           path: .nim_runtime
           key: nim-2.2.6-${{ matrix.os }}-${{ matrix.cpu }}
+          restore-keys: |
+            nim-2.2.6-${{ matrix.os }}-${{ matrix.cpu }}
 
       - name: Install Nim
         if: steps.cache-nim.outputs.cache-hit != 'true'

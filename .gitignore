@@ -1,9 +1,14 @@
+# Output binaries
 why
 why.exe
-repomix-output.xml
+tests/test_why_core
+tests/test_why_core.exe
+
+# Nimble files
 nimble.develop
 config.nims
 nimble.paths
 nimbledeps
-tests/test_why_core
-tests/test_why_core.exe
+
+# LLM utilities
+repomix-output.xml

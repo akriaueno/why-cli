@@ -29,18 +29,6 @@ brew tap akriaueno/tap
 brew install why
 ```
 
-### Build from Source
-
-Requirements: [Nim](https://nim-lang.org/) compiler (`nim` and `nimble`).
-
-```bash
-git clone [https://github.com/akriaueno/why-cli.git](https://github.com/akriaueno/why-cli.git)
-cd why-cli
-nimble build -d:release
-# The binary is created as './why'
-# Add it to your PATH (e.g., cp why /usr/local/bin/)
-```
-
 ## Usage
 
 Simply run `why` followed by the command name.
@@ -93,6 +81,28 @@ Real Path:   /var/lib/flatpak/app/com.valvesoftware.Steam/current/active/export/
 - Version Managers: Mise, Volta
 - Language Managers: npm (Global), pip/pipx (Python), Cargo (Rust), Go
 - System: Standard system paths (`/usr/bin`, etc.)
+
+## Developer
+
+### Build from Source
+
+Requirements: [Nim](https://nim-lang.org/) compiler (`nim` and `nimble`).
+
+```bash
+git clone [https://github.com/akriaueno/why-cli.git](https://github.com/akriaueno/why-cli.git)
+cd why-cli
+nimble build -d:release
+# The binary is created as './why'
+# Add it to your PATH (e.g., cp why /usr/local/bin/)
+```
+
+If you change dependencies, run `nimble lock` to update `nimble.lock`.
+
+### Testing
+
+```bash
+nimble test
+```
 
 ## License
 

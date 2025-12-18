@@ -1,183 +1,30 @@
-import os, strutils, sets, osproc
+import os
+import strutils
 import cligen
+import why_core
+import why_os
 
-type
-  MatchKind = enum
-    mkContains
-    mkStartsWith
-
-  ProviderRule = object
-    name: string
-    kind: MatchKind
-    patterns: seq[string]
-
-# --- Rules Configuration ---
-proc getRules(): seq[ProviderRule] =
-  return @[
-    ProviderRule(name: "Homebrew", kind: mkContains, patterns: @[
-      "/opt/homebrew", "/usr/local/cellar",
-      "/home/linuxbrew/.linuxbrew", "/.linuxbrew/cellar", "/.linuxbrew/caskroom"
-    ]),
-    ProviderRule(name: "Flatpak", kind: mkStartsWith, patterns: @[
-      "/var/lib/flatpak/exports/bin",
-      getHomeDir() / ".local/share/flatpak/exports/bin"
-    ]),
-    ProviderRule(name: "Mise", kind: mkContains, patterns: @[
-      "mise/shims", ".local/share/mise"
-    ]),
-    ProviderRule(name: "Snap", kind: mkContains, patterns: @[
-      "/snap/", "snap/bin"
-    ]),
-    ProviderRule(name: "Cargo", kind: mkContains, patterns: @[
-      ".cargo/bin"
-    ]),
-    ProviderRule(name: "npm", kind: mkContains, patterns: @[
-      "node_modules", "/npm", "npm/"
-    ]),
-    ProviderRule(name: "pip", kind: mkContains, patterns: @[
-      "site-packages", "dist-packages", "/pipx/", ".local/bin/pipx",
-      "/bin/pip", "/bin/pip3"
-    ]),
-    ProviderRule(name: "Volta", kind: mkContains, patterns: @[
-      ".volta"
-    ]),
-    ProviderRule(name: "Go", kind: mkContains, patterns: @[
-      "go/bin"
-    ]),
-    ProviderRule(name: "System", kind: mkStartsWith, patterns: @[
-      "/bin", "/usr/bin", "/sbin", "/usr/sbin"
-    ])
-  ]
-
-proc absoluteNormalized(path: string): string =
-  if path.len == 0: return path
-  return normalizedPath(absolutePath(path))
-
-# Make absolute + normalized path without resolving symlinks (keep "Origin" as shell sees it).
-proc absoluteNormalizedNoSymlink(path: string): string =
-  if path.len == 0: return path
-  if isAbsolute(path):
-    return normalizedPath(path)
-  else:
-    return normalizedPath(getCurrentDir() / path)
-
-proc findOriginPath(commandName: string): string =
-  # If user passed an explicit path, honor it without PATH lookup.
-  if commandName.contains(DirSep):
-    if fileExists(commandName) or symlinkExists(commandName):
-      return absoluteNormalizedNoSymlink(commandName)
-    return ""
-
-  for dir in getEnv("PATH").split(PathSep):
-    if dir.len == 0: continue
-    let candidate = dir / commandName
-    if fileExists(candidate) or symlinkExists(candidate):
-      return absoluteNormalizedNoSymlink(candidate)
-
-  ""
-
-proc resolveSymlinkChain(path: string): string =
-  var current = path
-  var visited = initHashSet[string]()
-  while symlinkExists(current):
-    if visited.contains(current): break
-    visited.incl(current)
-    var target = expandSymlink(current)
-    if not isAbsolute(target):
-      target = joinPath(parentDir(current), target)
-    current = normalizedPath(target)
-  return current
-
-proc detectProviderByPath(originPath, realPath: string): string =
-  let checkPaths = @[realPath, originPath]
-  let rules = getRules()
-  
-  for rule in rules:
-    for path in checkPaths:
-      if path.len == 0: continue
-      
-      for pattern in rule.patterns:
-        case rule.kind
-        of mkContains:
-          if pattern in path: return rule.name
-        of mkStartsWith:
-          if path.startsWith(pattern): 
-            return rule.name
-            
-  return "Unknown"
-
-proc checkSystemPackageManager(path: string): string =
-  if findExe("dpkg").len > 0:
-    let (outp, exitCode) = execCmdEx("dpkg -S " & quoteShell(path))
-    if exitCode == 0:
-      let parts = outp.split(":")
-      if parts.len > 0:
-        return "apt/dpkg (" & parts[0].strip() & ")"
-
-  if findExe("rpm").len > 0:
-    let (outp, exitCode) = execCmdEx("rpm -qf " & quoteShell(path))
-    if exitCode == 0:
-      return "yum/rpm (" & outp.strip() & ")"
-  
-  return ""
-
-proc findFlatpakFallback(shortName: string): string =
-  let searchDirs = @[
-    "/var/lib/flatpak/exports/bin",
-    getHomeDir() / ".local/share/flatpak/exports/bin"
-  ]
-  let query = shortName.toLowerAscii()
-
-  for dir in searchDirs:
-    if not dirExists(dir): continue
-    
-    for kind, path in walkDir(dir):
-      if kind == pcFile or kind == pcLinkToFile:
-        let filename = extractFilename(path).toLowerAscii()
-        if filename == query or filename.endsWith("." & query):
-          return path
-  return ""
-
-proc showResult(commandName, originPath, realPath, provider: string) =
-  echo "Command:     ", commandName
-  echo "Provider:    ", provider
-  echo "Origin Path: ", originPath
-  echo "Real Path:   ", realPath
+proc showResult(res: WhyResult) =
+  echo "Command:     ", res.commandName
+  echo "Provider:    ", res.provider
+  echo "Origin Path: ", res.originPath
+  echo "Real Path:   ", res.realPath
 
 proc why(commandName: string) =
-  var originPath: string
-  
   if commandName == "why":
     echo "Checking self-identity..."
-    originPath = findOriginPath(commandName)
-    if originPath.len == 0:
-      # Fallback to the invocation path if PATH lookup fails
-      let invoked = paramStr(0)
-      if invoked.len > 0 and (fileExists(invoked) or symlinkExists(invoked)):
-        originPath = absoluteNormalizedNoSymlink(invoked)
-  else:
-    originPath = findOriginPath(commandName)
-    
-    if originPath.len == 0 or extractFilename(originPath) != commandName:
-      let flatpakPath = findFlatpakFallback(commandName)
-      if flatpakPath.len > 0:
-        echo "Hint: Command '" & commandName & "' not found in PATH, but found '" & extractFilename(flatpakPath) & "' in Flatpak."
-        originPath = absoluteNormalizedNoSymlink(flatpakPath)
-      else:
-        stderr.writeLine "Error: command '" & commandName & "' not found."
-        quit 1
-        
-    originPath = absoluteNormalizedNoSymlink(originPath)
 
-  let realPath = resolveSymlinkChain(originPath)
-  var provider = detectProviderByPath(originPath, realPath)
+  let ctx = defaultCtx()
+  let (ok, res, err) = whyCore(commandName, ctx)
 
-  if provider == "System" or provider == "Unknown":
-    let sysInfo = checkSystemPackageManager(realPath)
-    if sysInfo.len > 0:
-      provider = sysInfo
+  if not ok:
+    stderr.writeLine err.msg
+    quit err.code
 
-  showResult(commandName, originPath, realPath, provider)
+  if res.hint.len > 0:
+    echo res.hint
+
+  showResult(res)
 
 when isMainModule:
   let rawArgs = commandLineParams()

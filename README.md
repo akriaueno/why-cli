@@ -96,13 +96,11 @@ nimble build -d:release
 # Add it to your PATH (e.g., cp why /usr/local/bin/)
 ```
 
+If you change dependencies, run `nimble lock` to update `nimble.lock`.
+
 ### Testing
 
-Normally, `nimble test` is enough. If you change dependencies, run `nimble lock`
-to update `nimble.lock`.
-
 ```bash
-nimble lock    # only when dependencies change
 nimble test
 ```
 

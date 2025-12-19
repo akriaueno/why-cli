@@ -52,7 +52,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          nim c -d:release ${{ matrix.nim_flags }} -o:why src/why.nim
+          nimble build -d:release ${{ matrix.nim_flags }}
           mv why ${{ matrix.archive_name }}
 
       - name: Create Archive

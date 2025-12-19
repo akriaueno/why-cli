@@ -37,6 +37,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cache Nimble dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('nimble.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nimble-
+
       - name: Install Nim
         uses: jiro4989/setup-nim-action@v2
         with:

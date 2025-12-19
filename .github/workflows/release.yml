@@ -43,7 +43,7 @@ jobs:
           nim-version: '2.2.6'
 
       - name: Install Dependencies
-        run: nimble install -y cligen
+        run: nimble install -y --depsOnly
 
       - name: Install Cross-compiler (Linux ARM64 only)
         if: matrix.install_cross != ''

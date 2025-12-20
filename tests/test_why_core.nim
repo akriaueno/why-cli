@@ -84,3 +84,12 @@ suite "whyCore":
       rules
     )
     check provider == "System"
+
+  test "asdf shim takes precedence over system path":
+    let rules = defaultRules("/home/test")
+    let provider = detectProviderByPath(
+      "/home/test/.asdf/shims/node",
+      "/usr/bin/node",
+      rules
+    )
+    check provider == "asdf"

@@ -33,7 +33,7 @@ run_and_assert_provider() {
 }
 
 # dpkg
-out=$($WHY ls)
+PATH="/bin:$PATH" out=$($WHY bash)
 assert_contains "$out" "Provider:    apt/dpkg ("
 
 # MacPorts

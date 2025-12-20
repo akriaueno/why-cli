@@ -3,13 +3,13 @@
 **"Why is this command here? Who installed it?"**
 
 `why` is a CLI tool that identifies the installation source (provider) of a command.
-It resolves symlinks, checks path patterns, and queries system package managers to tell you if a command is managed by Homebrew, apt, npm, Mise, Flatpak, or simply a system file.
+It resolves symlinks, checks path patterns, and queries system package managers to tell you if a command is managed by Homebrew, apt, npm, Mise, Flatpak, asdf, SDKMAN!, or simply a system file.
 
 ## Features
 
-- Provider Identification: Instantly detects if a binary is from Homebrew, apt/dpkg, yum/rpm, npm, pip, Cargo, Go, etc.
+- Provider Identification: Instantly detects if a binary is from Homebrew, apt/dpkg, yum/rpm, zypper/rpm, apk, pacman, Nix, MacPorts, npm, pip, Cargo, Go, etc.
 - Symlink Resolution: Traces the "Origin Path" (where your shell finds it) to the "Real Path" (where the binary actually lives).
-- System Package Manager Integration: Automatically queries `dpkg` or `rpm` for system files to identify the package name.
+- System Package Manager Integration: Automatically queries `dpkg`, `rpm`/`zypper`, `apk`, `pacman`, `pkg`, or Portage tools for system files to identify the package name.
 
 ## Installation
 
@@ -77,8 +77,8 @@ Real Path:   /var/lib/flatpak/app/com.valvesoftware.Steam/current/active/export/
 
 `why` currently supports detection for:
 
-- Package Managers: Homebrew, apt (Debian/Ubuntu), yum/rpm (RHEL/CentOS), Snap, Flatpak
-- Version Managers: Mise, Volta
+- Package Managers: Homebrew, apt (Debian/Ubuntu), yum/rpm (RHEL/CentOS), zypper/rpm (SUSE), apk (Alpine), pacman (Arch), Portage (Gentoo), pkg (FreeBSD), MacPorts, Nix, Snap, Flatpak, Scoop, Chocolatey, winget
+- Version Managers: Mise, Volta, asdf, SDKMAN!, nvm, fnm, pyenv, rbenv, rvm, Rustup, Conda
 - Language Managers: npm (Global), pip/pipx (Python), Cargo (Rust), Go
 - System: Standard system paths (`/usr/bin`, etc.)
 

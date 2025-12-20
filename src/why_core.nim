@@ -97,13 +97,13 @@ proc defaultRules*(homeDir: string): seq[ProviderRule] =
       ".conda", "/miniconda", "/anaconda", "/mambaforge", "/miniforge"
     ]),
     ProviderRule(name: "Scoop", kind: mkContains, patterns: @[
-      "scoop/shims", "scoop/apps", "scoop\\shims", "scoop\\apps"
+      "scoop/shims", "scoop/apps"
     ]),
     ProviderRule(name: "Chocolatey", kind: mkContains, patterns: @[
-      "chocolatey/bin", "chocolatey/lib", "chocolatey\\bin", "chocolatey\\lib"
+      "chocolatey/bin", "chocolatey/lib"
     ]),
     ProviderRule(name: "winget", kind: mkContains, patterns: @[
-      "WindowsApps", "Microsoft\\WindowsApps"
+      "WindowsApps", "Microsoft/WindowsApps"
     ]),
     ProviderRule(name: "Cargo", kind: mkContains, patterns: @[
       ".cargo/bin"
@@ -159,7 +159,9 @@ proc resolveSymlinkChain*(path: string, ctx: WhyCtx): string =
   return current
 
 proc detectProviderByPath*(originPath, realPath: string, rules: seq[ProviderRule]): string =
-  let checkPaths = @[realPath, originPath]
+  let normalizedReal = realPath.replace('\\', '/')
+  let normalizedOrigin = originPath.replace('\\', '/')
+  let checkPaths = @[normalizedReal, normalizedOrigin]
 
   for rule in rules:
     for path in checkPaths:
@@ -167,12 +169,13 @@ proc detectProviderByPath*(originPath, realPath: string, rules: seq[ProviderRule
         continue
 
       for pattern in rule.patterns:
+        let normalizedPattern = pattern.replace('\\', '/')
         case rule.kind
         of mkContains:
-          if pattern in path:
+          if normalizedPattern in path:
             return rule.name
         of mkStartsWith:
-          if path.startsWith(pattern):
+          if path.startsWith(normalizedPattern):
             return rule.name
 
   return "Unknown"

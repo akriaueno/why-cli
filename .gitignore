@@ -3,6 +3,7 @@ why
 why.exe
 tests/test_why_core
 tests/test_why_core.exe
+tests/e2e/why-linux-amd64
 
 # Nimble files
 nimble.develop

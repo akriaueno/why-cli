@@ -13,3 +13,6 @@ nimbledeps
 
 # LLM utilities
 repomix-output.xml
+
+# Serena
+.serena/

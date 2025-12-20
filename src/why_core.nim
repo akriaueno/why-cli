@@ -185,14 +185,13 @@ proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
       if parts.len > 0:
         return "apt/dpkg (" & parts[0].strip() & ")"
 
-  if ctx.findExe("zypper").len > 0 and ctx.findExe("rpm").len > 0:
+  let hasRpm = ctx.findExe("rpm").len > 0
+  let hasZypper = ctx.findExe("zypper").len > 0
+  if hasRpm:
     let (outp, exitCode) = ctx.execCmd("rpm -qf " & quoteShell(path))
     if exitCode == 0:
-      return "zypper/rpm (" & outp.strip() & ")"
-
-  if ctx.findExe("rpm").len > 0:
-    let (outp, exitCode) = ctx.execCmd("rpm -qf " & quoteShell(path))
-    if exitCode == 0:
+      if hasZypper:
+        return "zypper/rpm (" & outp.strip() & ")"
       return "yum/rpm (" & outp.strip() & ")"
 
   if ctx.findExe("apk").len > 0:

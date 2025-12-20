@@ -50,6 +50,12 @@ proc defaultRules*(homeDir: string): seq[ProviderRule] =
       "/opt/homebrew", "/usr/local/cellar",
       "/home/linuxbrew/.linuxbrew", "/.linuxbrew/cellar", "/.linuxbrew/caskroom"
     ]),
+    ProviderRule(name: "MacPorts", kind: mkStartsWith, patterns: @[
+      "/opt/local/"
+    ]),
+    ProviderRule(name: "Nix", kind: mkStartsWith, patterns: @[
+      "/nix/store", "/run/current-system/sw", "/nix/var/nix/profiles"
+    ]),
     ProviderRule(name: "Flatpak", kind: mkStartsWith, patterns: @[
       "/var/lib/flatpak/exports/bin",
       homeDir / ".local/share/flatpak/exports/bin"
@@ -63,6 +69,42 @@ proc defaultRules*(homeDir: string): seq[ProviderRule] =
     ProviderRule(name: "Snap", kind: mkContains, patterns: @[
       "/snap/", "snap/bin"
     ]),
+    ProviderRule(name: "SDKMAN!", kind: mkContains, patterns: @[
+      ".sdkman"
+    ]),
+    ProviderRule(name: "Volta", kind: mkContains, patterns: @[
+      ".volta"
+    ]),
+    ProviderRule(name: "nvm", kind: mkContains, patterns: @[
+      ".nvm"
+    ]),
+    ProviderRule(name: "fnm", kind: mkContains, patterns: @[
+      ".fnm", ".local/share/fnm", "fnm_multishells"
+    ]),
+    ProviderRule(name: "pyenv", kind: mkContains, patterns: @[
+      ".pyenv", "pyenv/shims"
+    ]),
+    ProviderRule(name: "rbenv", kind: mkContains, patterns: @[
+      ".rbenv", "rbenv/shims"
+    ]),
+    ProviderRule(name: "rvm", kind: mkContains, patterns: @[
+      ".rvm", "/usr/local/rvm"
+    ]),
+    ProviderRule(name: "Rustup", kind: mkContains, patterns: @[
+      ".rustup", "rustup/toolchains"
+    ]),
+    ProviderRule(name: "Conda", kind: mkContains, patterns: @[
+      ".conda", "/miniconda", "/anaconda", "/mambaforge", "/miniforge"
+    ]),
+    ProviderRule(name: "Scoop", kind: mkContains, patterns: @[
+      "scoop/shims", "scoop/apps"
+    ]),
+    ProviderRule(name: "Chocolatey", kind: mkContains, patterns: @[
+      "chocolatey/bin", "chocolatey/lib"
+    ]),
+    ProviderRule(name: "winget", kind: mkContains, patterns: @[
+      "WindowsApps", "Microsoft/WindowsApps"
+    ]),
     ProviderRule(name: "Cargo", kind: mkContains, patterns: @[
       ".cargo/bin"
     ]),
@@ -72,9 +114,6 @@ proc defaultRules*(homeDir: string): seq[ProviderRule] =
     ProviderRule(name: "pip", kind: mkContains, patterns: @[
       "site-packages", "dist-packages", "/pipx/", ".local/bin/pipx",
       "/bin/pip", "/bin/pip3"
-    ]),
-    ProviderRule(name: "Volta", kind: mkContains, patterns: @[
-      ".volta"
     ]),
     ProviderRule(name: "Go", kind: mkContains, patterns: @[
       "go/bin"
@@ -120,7 +159,9 @@ proc resolveSymlinkChain*(path: string, ctx: WhyCtx): string =
   return current
 
 proc detectProviderByPath*(originPath, realPath: string, rules: seq[ProviderRule]): string =
-  let checkPaths = @[realPath, originPath]
+  let normalizedReal = realPath.replace('\\', '/')
+  let normalizedOrigin = originPath.replace('\\', '/')
+  let checkPaths = @[normalizedReal, normalizedOrigin]
 
   for rule in rules:
     for path in checkPaths:
@@ -128,28 +169,116 @@ proc detectProviderByPath*(originPath, realPath: string, rules: seq[ProviderRule
         continue
 
       for pattern in rule.patterns:
+        let normalizedPattern = pattern.replace('\\', '/')
         case rule.kind
         of mkContains:
-          if pattern in path:
+          if normalizedPattern in path:
             return rule.name
         of mkStartsWith:
-          if path.startsWith(pattern):
+          if path.startsWith(normalizedPattern):
             return rule.name
 
   return "Unknown"
 
-proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
-  if ctx.findExe("dpkg").len > 0:
-    let (outp, exitCode) = ctx.execCmd("dpkg -S " & quoteShell(path))
-    if exitCode == 0:
-      let parts = outp.split(":")
-      if parts.len > 0:
-        return "apt/dpkg (" & parts[0].strip() & ")"
+type
+  PkgManagerStrategy = object
+    name: string
+    cmd: proc(path: string, ctx: WhyCtx): string {.nimcall.}
 
-  if ctx.findExe("rpm").len > 0:
-    let (outp, exitCode) = ctx.execCmd("rpm -qf " & quoteShell(path))
-    if exitCode == 0:
-      return "yum/rpm (" & outp.strip() & ")"
+proc checkPkgManagerDpkg(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("dpkg").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("dpkg -S " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let parts = outp.split(":")
+  if parts.len == 0:
+    return ""
+  return "apt/dpkg (" & parts[0].strip() & ")"
+
+proc checkPkgManagerRpm(path: string, ctx: WhyCtx): string =
+  let hasRpm = ctx.findExe("rpm").len > 0
+  let hasZypper = ctx.findExe("zypper").len > 0
+  if not hasRpm:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("rpm -qf " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  if hasZypper:
+    return "zypper/rpm (" & outp.strip() & ")"
+  return "yum/rpm (" & outp.strip() & ")"
+
+proc checkPkgManagerApk(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("apk").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("apk info -W " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let lines = outp.splitLines()
+  if lines.len == 0:
+    return ""
+  let pkg = lines[0].strip()
+  if pkg.len == 0:
+    return ""
+  return "apk (" & pkg & ")"
+
+proc checkPkgManagerPacman(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("pacman").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("pacman -Qo " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let trimmed = outp.strip()
+  let marker = " is owned by "
+  if trimmed.contains(marker):
+    let parts = trimmed.split(marker)
+    if parts.len > 1:
+      return "pacman (" & parts[1].strip() & ")"
+  if trimmed.len > 0:
+    return "pacman (" & trimmed & ")"
+  return ""
+
+proc checkPkgManagerPortageQfile(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("qfile").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("qfile -qv " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let lines = outp.splitLines()
+  if lines.len == 0:
+    return ""
+  let tokens = lines[0].splitWhitespace()
+  if tokens.len == 0:
+    return ""
+  return "portage (" & tokens[0].strip() & ")"
+
+proc checkPkgManagerPortageEquery(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("equery").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("equery b " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  for line in outp.splitLines():
+    let idx = line.find(" (")
+    if idx > 0:
+      let pkg = line[0..<idx].strip()
+      if pkg.len > 0 and not pkg.startsWith("*"):
+        return "portage (" & pkg & ")"
+  return ""
+
+proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
+  let checks = @[
+    PkgManagerStrategy(name: "dpkg", cmd: checkPkgManagerDpkg),
+    PkgManagerStrategy(name: "rpm", cmd: checkPkgManagerRpm),
+    PkgManagerStrategy(name: "apk", cmd: checkPkgManagerApk),
+    PkgManagerStrategy(name: "pacman", cmd: checkPkgManagerPacman),
+    PkgManagerStrategy(name: "qfile", cmd: checkPkgManagerPortageQfile),
+    PkgManagerStrategy(name: "equery", cmd: checkPkgManagerPortageEquery),
+  ]
+  for check in checks:
+    let detected = check.cmd(path, ctx)
+    if detected.len > 0:
+      return detected
 
   return ""
 

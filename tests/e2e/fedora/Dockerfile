@@ -12,4 +12,4 @@ RUN dnf -y install bash ca-certificates coreutils \
 COPY --from=builder /work/why /usr/local/bin/why
 COPY tests/e2e/common.sh /test-common.sh
 COPY tests/e2e/fedora/test.sh /test.sh
-ENTRYPOINT ["/usr/bin/bash", "/test.sh"]
+ENTRYPOINT ["/bin/bash", "/test.sh"]

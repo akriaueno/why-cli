@@ -63,11 +63,11 @@ proc defaultRules*(homeDir: string): seq[ProviderRule] =
     ProviderRule(name: "Mise", kind: mkContains, patterns: @[
       "mise/shims", ".local/share/mise"
     ]),
-    ProviderRule(name: "Snap", kind: mkContains, patterns: @[
-      "/snap/", "snap/bin"
-    ]),
     ProviderRule(name: "asdf", kind: mkContains, patterns: @[
       ".asdf/shims", ".asdf/installs"
+    ]),
+    ProviderRule(name: "Snap", kind: mkContains, patterns: @[
+      "/snap/", "snap/bin"
     ]),
     ProviderRule(name: "SDKMAN!", kind: mkContains, patterns: @[
       ".sdkman"

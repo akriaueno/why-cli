@@ -1,4 +1,4 @@
-FROM nimlang/nim:latest AS builder
+FROM nimlang/nim:2.2.4-ubuntu-regular AS builder
 WORKDIR /work
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git ca-certificates \

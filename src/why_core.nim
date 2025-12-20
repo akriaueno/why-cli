@@ -214,13 +214,6 @@ proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
       if trimmed.len > 0:
         return "pacman (" & trimmed & ")"
 
-  if ctx.findExe("pkg").len > 0:
-    let (outp, exitCode) = ctx.execCmd("pkg which -q " & quoteShell(path))
-    if exitCode == 0:
-      let lines = outp.splitLines()
-      if lines.len > 0 and lines[0].strip().len > 0:
-        return "pkg (" & lines[0].strip() & ")"
-
   if ctx.findExe("qfile").len > 0:
     let (outp, exitCode) = ctx.execCmd("qfile -qv " & quoteShell(path))
     if exitCode == 0:

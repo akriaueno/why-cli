@@ -192,30 +192,6 @@ suite "whyCore":
     check err.msg.len == 0
     check res.provider == "pacman (coreutils 9.2-1)"
 
-  test "system package manager detection via pkg":
-    var files = {"/usr/bin/ls": true}.toTable
-
-    let ctx = WhyCtx(
-      getEnv: proc(key: string): string =
-        if key == "PATH": "/usr/bin:/bin" else: "",
-      getCurrentDir: proc(): string = "/work",
-      getHomeDir: proc(): string = "/home/test",
-      fileExists: proc(p: string): bool = files.getOrDefault(p, false),
-      symlinkExists: proc(p: string): bool = false,
-      expandSymlink: proc(p: string): string = "",
-      dirExists: proc(p: string): bool = false,
-      listDir: proc(dir: string): seq[(DirEntryKind, string)] = @[],
-      findExe: proc(name: string): string =
-        if name == "pkg": "/usr/sbin/pkg" else: "",
-      execCmd: proc(cmd: string): ExecResult = ("coreutils\n", 0),
-      paramStr0: proc(): string = "/usr/bin/why"
-    )
-
-    let (ok, res, err) = whyCore("ls", ctx)
-    check ok
-    check err.msg.len == 0
-    check res.provider == "pkg (coreutils)"
-
   test "system package manager detection via portage qfile":
     var files = {"/usr/bin/ls": true}.toTable
 

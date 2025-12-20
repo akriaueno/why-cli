@@ -25,5 +25,5 @@ Run a subset:
 ## Notes
 
 - Alpine uses a glibc compatibility layer (`gcompat`/`libc6-compat`) to run the binary built in the builder stage.
-- `pkg` (FreeBSD) and Portage (Gentoo) are not covered here due to container limitations; they remain covered by unit tests.
+- Portage (Gentoo) is not covered here due to container limitations; it remains covered by unit tests.
 - Windows-only providers (Scoop/Chocolatey/winget) are covered by unit tests.

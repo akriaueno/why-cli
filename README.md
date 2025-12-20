@@ -9,7 +9,7 @@ It resolves symlinks, checks path patterns, and queries system package managers 
 
 - Provider Identification: Instantly detects if a binary is from Homebrew, apt/dpkg, yum/rpm, zypper/rpm, apk, pacman, Nix, MacPorts, npm, pip, Cargo, Go, etc.
 - Symlink Resolution: Traces the "Origin Path" (where your shell finds it) to the "Real Path" (where the binary actually lives).
-- System Package Manager Integration: Automatically queries `dpkg`, `rpm`/`zypper`, `apk`, `pacman`, `pkg`, or Portage tools for system files to identify the package name.
+- System Package Manager Integration: Automatically queries `dpkg`, `rpm`/`zypper`, `apk`, `pacman`, or Portage tools for system files to identify the package name.
 
 ## Installation
 
@@ -77,7 +77,7 @@ Real Path:   /var/lib/flatpak/app/com.valvesoftware.Steam/current/active/export/
 
 `why` currently supports detection for:
 
-- Package Managers: Homebrew, apt (Debian/Ubuntu), yum/rpm (RHEL/CentOS), zypper/rpm (SUSE), apk (Alpine), pacman (Arch), Portage (Gentoo), pkg (FreeBSD), MacPorts, Nix, Snap, Flatpak, Scoop, Chocolatey, winget
+- Package Managers: Homebrew, apt (Debian/Ubuntu), yum/rpm (RHEL/CentOS), zypper/rpm (SUSE), apk (Alpine), pacman (Arch), Portage (Gentoo), MacPorts, Nix, Snap, Flatpak, Scoop, Chocolatey, winget
 - Version Managers: Mise, Volta, asdf, SDKMAN!, nvm, fnm, pyenv, rbenv, rvm, Rustup, Conda
 - Language Managers: npm (Global), pip/pipx (Python), Cargo (Rust), Go
 - System: Standard system paths (`/usr/bin`, etc.)

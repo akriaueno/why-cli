@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-DISTROS=(ubuntu fedora opensuse alpine arch)
+DISTROS=(ubuntu fedora opensuse alpine arch gentoo)
 
 if [[ $# -gt 0 ]]; then
   DISTROS=("$@")

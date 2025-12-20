@@ -21,9 +21,10 @@ Run a subset:
 - opensuse: zypper/rpm
 - alpine: apk
 - arch: pacman
+- gentoo: portage (qfile)
 
 ## Notes
 
 - Alpine uses a glibc compatibility layer (`gcompat`/`libc6-compat`) to run the binary built in the builder stage.
-- Portage (Gentoo) is not covered here due to container limitations; it remains covered by unit tests.
+- Gentoo coverage is provided via a stage3 image with portage-utils (qfile).
 - Windows-only providers (Scoop/Chocolatey/winget) are covered by unit tests.

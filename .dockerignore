@@ -1,0 +1,16 @@
+.git
+.github
+.serena
+.DS_Store
+.idea
+.vscode
+
+# Local build artifacts
+why
+why.exe
+tests/test_why_core
+tests/test_why_core.exe
+nimcache/
+
+# Editor/OS noise
+Thumbs.db

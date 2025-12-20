@@ -20,7 +20,7 @@ run_one() {
   fi
 
   echo "==> Building ${image}"
-  docker build -f "$dockerfile" -t "$image" "$ROOT_DIR"
+  docker build --progress=plain -f "$dockerfile" -t "$image" "$ROOT_DIR"
   echo "==> Running ${image}"
   docker run --rm "$image"
   echo "==> ${distro} OK"
@@ -30,7 +30,7 @@ run_one() {
 if command -v parallel >/dev/null 2>&1; then
   export ROOT_DIR
   export -f run_one
-  parallel --halt now,fail=1 --jobs "$jobs" run_one ::: "${DISTROS[@]}"
+  parallel --line-buffer --tag --halt now,fail=1 --jobs "$jobs" run_one ::: "${DISTROS[@]}"
 else
   printf '%s\n' "${DISTROS[@]}" | xargs -I{} -P "$jobs" bash -c '
     set -euo pipefail
@@ -44,7 +44,7 @@ else
     fi
 
     echo "==> Building ${image}"
-    docker build -f "$dockerfile" -t "$image" "$ROOT_DIR"
+    docker build --progress=plain -f "$dockerfile" -t "$image" "$ROOT_DIR"
     echo "==> Running ${image}"
     docker run --rm "$image"
     echo "==> ${distro} OK"

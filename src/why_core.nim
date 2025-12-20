@@ -177,60 +177,105 @@ proc detectProviderByPath*(originPath, realPath: string, rules: seq[ProviderRule
 
   return "Unknown"
 
-proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
-  if ctx.findExe("dpkg").len > 0:
-    let (outp, exitCode) = ctx.execCmd("dpkg -S " & quoteShell(path))
-    if exitCode == 0:
-      let parts = outp.split(":")
-      if parts.len > 0:
-        return "apt/dpkg (" & parts[0].strip() & ")"
+type
+  PkgManagerRef = object
+    name: string
+    cmd: proc(path: string, ctx: WhyCtx): string {.nimcall.}
 
+proc checkPkgManagerDpkg(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("dpkg").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("dpkg -S " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let parts = outp.split(":")
+  if parts.len == 0:
+    return ""
+  return "apt/dpkg (" & parts[0].strip() & ")"
+
+proc checkPkgManagerRpm(path: string, ctx: WhyCtx): string =
   let hasRpm = ctx.findExe("rpm").len > 0
   let hasZypper = ctx.findExe("zypper").len > 0
-  if hasRpm:
-    let (outp, exitCode) = ctx.execCmd("rpm -qf " & quoteShell(path))
-    if exitCode == 0:
-      if hasZypper:
-        return "zypper/rpm (" & outp.strip() & ")"
-      return "yum/rpm (" & outp.strip() & ")"
+  if not hasRpm:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("rpm -qf " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  if hasZypper:
+    return "zypper/rpm (" & outp.strip() & ")"
+  return "yum/rpm (" & outp.strip() & ")"
 
-  if ctx.findExe("apk").len > 0:
-    let (outp, exitCode) = ctx.execCmd("apk info -W " & quoteShell(path))
-    if exitCode == 0:
-      let lines = outp.splitLines()
-      if lines.len > 0 and lines[0].strip().len > 0:
-        return "apk (" & lines[0].strip() & ")"
+proc checkPkgManagerApk(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("apk").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("apk info -W " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let lines = outp.splitLines()
+  if lines.len == 0:
+    return ""
+  let pkg = lines[0].strip()
+  if pkg.len == 0:
+    return ""
+  return "apk (" & pkg & ")"
 
-  if ctx.findExe("pacman").len > 0:
-    let (outp, exitCode) = ctx.execCmd("pacman -Qo " & quoteShell(path))
-    if exitCode == 0:
-      let trimmed = outp.strip()
-      let marker = " is owned by "
-      if trimmed.contains(marker):
-        let parts = trimmed.split(marker)
-        if parts.len > 1:
-          return "pacman (" & parts[1].strip() & ")"
-      if trimmed.len > 0:
-        return "pacman (" & trimmed & ")"
+proc checkPkgManagerPacman(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("pacman").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("pacman -Qo " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let trimmed = outp.strip()
+  let marker = " is owned by "
+  if trimmed.contains(marker):
+    let parts = trimmed.split(marker)
+    if parts.len > 1:
+      return "pacman (" & parts[1].strip() & ")"
+  if trimmed.len > 0:
+    return "pacman (" & trimmed & ")"
+  return ""
 
-  if ctx.findExe("qfile").len > 0:
-    let (outp, exitCode) = ctx.execCmd("qfile -qv " & quoteShell(path))
-    if exitCode == 0:
-      let lines = outp.splitLines()
-      if lines.len > 0:
-        let tokens = lines[0].splitWhitespace()
-        if tokens.len > 0:
-          return "portage (" & tokens[0].strip() & ")"
+proc checkPkgManagerPortageQfile(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("qfile").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("qfile -qv " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  let lines = outp.splitLines()
+  if lines.len == 0:
+    return ""
+  let tokens = lines[0].splitWhitespace()
+  if tokens.len == 0:
+    return ""
+  return "portage (" & tokens[0].strip() & ")"
 
-  if ctx.findExe("equery").len > 0:
-    let (outp, exitCode) = ctx.execCmd("equery b " & quoteShell(path))
-    if exitCode == 0:
-      for line in outp.splitLines():
-        let idx = line.find(" (")
-        if idx > 0:
-          let pkg = line[0..<idx].strip()
-          if pkg.len > 0 and not pkg.startsWith("*"):
-            return "portage (" & pkg & ")"
+proc checkPkgManagerPortageEquery(path: string, ctx: WhyCtx): string =
+  if ctx.findExe("equery").len == 0:
+    return ""
+  let (outp, exitCode) = ctx.execCmd("equery b " & quoteShell(path))
+  if exitCode != 0:
+    return ""
+  for line in outp.splitLines():
+    let idx = line.find(" (")
+    if idx > 0:
+      let pkg = line[0..<idx].strip()
+      if pkg.len > 0 and not pkg.startsWith("*"):
+        return "portage (" & pkg & ")"
+  return ""
+
+proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
+  let checks = @[
+    PkgManagerRef(name: "dpkg", cmd: checkPkgManagerDpkg),
+    PkgManagerRef(name: "rpm", cmd: checkPkgManagerRpm),
+    PkgManagerRef(name: "apk", cmd: checkPkgManagerApk),
+    PkgManagerRef(name: "pacman", cmd: checkPkgManagerPacman),
+    PkgManagerRef(name: "qfile", cmd: checkPkgManagerPortageQfile),
+    PkgManagerRef(name: "equery", cmd: checkPkgManagerPortageEquery),
+  ]
+  for check in checks:
+    let detected = check.cmd(path, ctx)
+    if detected.len > 0:
+      return detected
 
   return ""
 

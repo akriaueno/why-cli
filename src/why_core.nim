@@ -181,7 +181,7 @@ proc detectProviderByPath*(originPath, realPath: string, rules: seq[ProviderRule
   return "Unknown"
 
 type
-  PkgManagerRef = object
+  PkgManagerStrategy = object
     name: string
     cmd: proc(path: string, ctx: WhyCtx): string {.nimcall.}
 
@@ -268,12 +268,12 @@ proc checkPkgManagerPortageEquery(path: string, ctx: WhyCtx): string =
 
 proc checkSystemPackageManager*(path: string, ctx: WhyCtx): string =
   let checks = @[
-    PkgManagerRef(name: "dpkg", cmd: checkPkgManagerDpkg),
-    PkgManagerRef(name: "rpm", cmd: checkPkgManagerRpm),
-    PkgManagerRef(name: "apk", cmd: checkPkgManagerApk),
-    PkgManagerRef(name: "pacman", cmd: checkPkgManagerPacman),
-    PkgManagerRef(name: "qfile", cmd: checkPkgManagerPortageQfile),
-    PkgManagerRef(name: "equery", cmd: checkPkgManagerPortageEquery),
+    PkgManagerStrategy(name: "dpkg", cmd: checkPkgManagerDpkg),
+    PkgManagerStrategy(name: "rpm", cmd: checkPkgManagerRpm),
+    PkgManagerStrategy(name: "apk", cmd: checkPkgManagerApk),
+    PkgManagerStrategy(name: "pacman", cmd: checkPkgManagerPacman),
+    PkgManagerStrategy(name: "qfile", cmd: checkPkgManagerPortageQfile),
+    PkgManagerStrategy(name: "equery", cmd: checkPkgManagerPortageEquery),
   ]
   for check in checks:
     let detected = check.cmd(path, ctx)

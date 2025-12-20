@@ -54,22 +54,62 @@ if command -v parallel >/dev/null 2>&1; then
   export -f run_one
   parallel --line-buffer --tag --halt now,fail=1 --jobs "$jobs" run_one ::: "${DISTROS[@]}"
 else
-  printf '%s\n' "${DISTROS[@]}" | xargs -I{} -P "$jobs" bash -c '
-    set -euo pipefail
-    ROOT_DIR="$1"
-    distro="$2"
-    image="why-e2e-${distro}"
-    dockerfile="$ROOT_DIR/tests/e2e/${distro}/Dockerfile"
-    if [[ ! -f "$dockerfile" ]]; then
-      echo "Missing Dockerfile for ${distro}: ${dockerfile}" >&2
-      exit 1
-    fi
+  pids=()
+  fail=0
 
-    echo "==> Building ${image}"
-    docker build --progress=plain -f "$dockerfile" -t "$image" "$ROOT_DIR"
-    echo "==> Running ${image}"
-    docker run --rm "$image"
-    echo "==> ${distro} OK"
-    echo
-  ' _ "$ROOT_DIR" {}
+  prune_pids() {
+    local alive=()
+    local pid
+    for pid in "${pids[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        alive+=("$pid")
+      fi
+    done
+    pids=("${alive[@]}")
+  }
+
+  wait_any() {
+    if wait -n 2>/dev/null; then
+      prune_pids
+      return 0
+    fi
+    local pid="${pids[0]:-}"
+    if [[ -n "$pid" ]]; then
+      wait "$pid"
+      local status=$?
+      prune_pids
+      return "$status"
+    fi
+    return 0
+  }
+
+  for distro in "${DISTROS[@]}"; do
+    run_one "$distro" &
+    pids+=("$!")
+    while ((${#pids[@]} >= jobs)); do
+      if ! wait_any; then
+        fail=1
+        break
+      fi
+    done
+    if ((fail)); then
+      break
+    fi
+  done
+
+  if ((fail)); then
+    for pid in "${pids[@]}"; do
+      kill "$pid" 2>/dev/null || true
+    done
+  fi
+
+  for pid in "${pids[@]}"; do
+    if ! wait "$pid"; then
+      fail=1
+    fi
+  done
+
+  if ((fail)); then
+    exit 1
+  fi
 fi

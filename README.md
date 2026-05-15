@@ -13,6 +13,48 @@ It resolves symlinks, checks path patterns, and queries system package managers 
 
 ## Installation
 
+### Home Manager (Nix)
+
+Add this repository as a flake input:
+
+```nix
+{
+  inputs.why-cli = {
+    url = "github:akriaueno/why-cli";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+}
+```
+
+Then install it with `home.packages`:
+
+```nix
+{ inputs, pkgs, ... }:
+
+{
+  home.packages = [
+    inputs.why-cli.packages.${pkgs.stdenv.hostPlatform.system}.default
+  ];
+}
+```
+
+If your Home Manager modules do not already receive `inputs`, pass them from
+`homeManagerConfiguration` with `extraSpecialArgs = { inherit inputs; };`.
+
+Or import the included Home Manager module:
+
+```nix
+{ inputs, ... }:
+
+{
+  imports = [
+    inputs.why-cli.homeManagerModules.default
+  ];
+
+  programs.why.enable = true;
+}
+```
+
 ### Homebrew (macOS & Linux) - Recommended
 
 You can easily install `why` using Homebrew.

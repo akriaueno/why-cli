@@ -49,3 +49,14 @@ jobs:
         run: ./tests/e2e/run.sh
         env:
           E2E_JOBS: 2
+
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Build Nix Package
+        run: nix build

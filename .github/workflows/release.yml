@@ -20,6 +20,8 @@ jobs:
             target_os: linux
             cpu: amd64
             archive_name: why-linux-amd64
+            install_cross: ''
+            linker_env: ''
           - os: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
             target_os: linux
@@ -32,11 +34,15 @@ jobs:
             target_os: darwin
             cpu: amd64
             archive_name: why-darwin-amd64
+            install_cross: ''
+            linker_env: ''
           - os: macos-15
             target: aarch64-apple-darwin
             target_os: darwin
             cpu: arm64
             archive_name: why-darwin-arm64
+            install_cross: ''
+            linker_env: ''
 
     steps:
       - uses: actions/checkout@v6

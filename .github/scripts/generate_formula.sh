@@ -6,6 +6,8 @@ VERSION=$1
 URL=$2
 SHA256=$3
 
+readonly VERSION URL SHA256
+
 if [ ! -f "Cargo.toml" ]; then
     echo "Error: Cargo.toml not found." >&2
     exit 1
@@ -22,7 +24,7 @@ class Why < Formula
   depends_on "rust" => :build
 
   def install
-    system "cargo", "install", "--locked", "--path", ".", "--root", prefix
+    system "cargo", "install", "--locked", *std_cargo_args
   end
 
   test do

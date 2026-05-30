@@ -131,7 +131,7 @@ Real Path:   /var/lib/flatpak/app/com.valvesoftware.Steam/current/active/export/
 Requirements: [Rust](https://www.rust-lang.org/) toolchain (`cargo` and `rustc`).
 
 ```bash
-git clone [https://github.com/akriaueno/why-cli.git](https://github.com/akriaueno/why-cli.git)
+git clone https://github.com/akriaueno/why-cli.git
 cd why-cli
 cargo build --release
 # The binary is created as './target/release/why'

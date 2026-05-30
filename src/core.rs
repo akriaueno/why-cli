@@ -65,10 +65,10 @@ pub fn default_rules(home_dir: &str) -> Vec<ProviderRule> {
             kind: MatchKind::Contains,
             patterns: strings(&[
                 "/opt/homebrew",
-                "/usr/local/cellar",
+                "/usr/local/Cellar",
                 "/home/linuxbrew/.linuxbrew",
-                "/.linuxbrew/cellar",
-                "/.linuxbrew/caskroom",
+                "/.linuxbrew/Cellar",
+                "/.linuxbrew/Caskroom",
             ]),
         },
         ProviderRule {
@@ -210,7 +210,7 @@ pub fn default_rules(home_dir: &str) -> Vec<ProviderRule> {
 }
 
 pub fn find_origin_path(command_name: &str, ctx: &dyn WhyCtx) -> String {
-    if command_name.contains(std::path::MAIN_SEPARATOR) || command_name.contains('/') {
+    if is_explicit_command_path(command_name) {
         if ctx.file_exists(command_name) || ctx.symlink_exists(command_name) {
             return absolute_normalized_no_symlink(command_name, &ctx.get_current_dir());
         }
@@ -345,7 +345,10 @@ pub fn why_core(command_name: &str, ctx: &dyn WhyCtx) -> WhyCoreResult {
     } else {
         origin_path = find_origin_path(command_name, ctx);
 
-        if origin_path.is_empty() || file_name(&origin_path) != command_name {
+        let use_flatpak_fallback = !is_explicit_command_path(command_name)
+            && (origin_path.is_empty() || file_name(&origin_path) != command_name);
+
+        if use_flatpak_fallback {
             let flatpak_path = find_flatpak_fallback(command_name, ctx, &ctx.get_home_dir());
             if flatpak_path.is_empty() {
                 return Err(WhyError {
@@ -359,6 +362,11 @@ pub fn why_core(command_name: &str, ctx: &dyn WhyCtx) -> WhyCoreResult {
                 file_name(&flatpak_path)
             );
             origin_path = absolute_normalized_no_symlink(&flatpak_path, &ctx.get_current_dir());
+        } else if origin_path.is_empty() {
+            return Err(WhyError {
+                msg: format!("command '{command_name}' was not found"),
+                code: 1,
+            });
         } else {
             origin_path = absolute_normalized_no_symlink(&origin_path, &ctx.get_current_dir());
         }
@@ -577,6 +585,10 @@ fn is_absolute_path(path: &str) -> bool {
     Path::new(path).is_absolute() || path.starts_with('/')
 }
 
+fn is_explicit_command_path(command_name: &str) -> bool {
+    command_name.starts_with('.') || command_name.contains('/') || command_name.contains('\\')
+}
+
 fn shell_quote(value: &str) -> String {
     if value.is_empty() {
         return "''".to_string();
@@ -718,6 +730,29 @@ mod tests {
     }
 
     #[test]
+    fn explicit_path_uses_that_path_without_flatpak_fallback() {
+        let flatpak_dir = "/var/lib/flatpak/exports/bin";
+        let mut ctx = FakeCtx::base();
+        ctx.dirs.insert(flatpak_dir.to_string());
+        ctx.dir_entries.insert(
+            flatpak_dir.to_string(),
+            vec![(
+                DirEntryKind::File,
+                "/var/lib/flatpak/exports/bin/org.test.Ls".to_string(),
+            )],
+        );
+        ctx.files.insert("/usr/bin/ls".to_string());
+
+        let result = why_core("/usr/bin/ls", &ctx).unwrap();
+        assert_eq!(result.origin_path, "/usr/bin/ls");
+        assert_eq!(result.provider, "System");
+
+        let err = why_core("/usr/bin/missing", &ctx).unwrap_err();
+        assert_eq!(err.code, 1);
+        assert!(err.msg.contains("/usr/bin/missing"));
+    }
+
+    #[test]
     fn system_package_manager_detection_via_dpkg() {
         let ctx = FakeCtx::base()
             .with_path("/usr/bin:/bin")
@@ -821,6 +856,21 @@ mod tests {
     #[test]
     fn detects_package_managers_by_path() {
         let cases = [
+            (
+                "Homebrew",
+                "/usr/local/bin/node",
+                "/usr/local/Cellar/node/25.2.1/bin/node",
+            ),
+            (
+                "Homebrew",
+                "/home/linuxbrew/.linuxbrew/bin/node",
+                "/home/linuxbrew/.linuxbrew/Cellar/node/25.2.1/bin/node",
+            ),
+            (
+                "Homebrew",
+                "/home/test/.linuxbrew/bin/firefox",
+                "/home/test/.linuxbrew/Caskroom/firefox/145.0/firefox",
+            ),
             ("MacPorts", "/opt/local/bin/port", "/opt/local/bin/port"),
             (
                 "Nix",

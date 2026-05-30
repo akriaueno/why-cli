@@ -71,3 +71,6 @@ jobs:
 
       - name: Build Nix Package
         run: nix build
+
+      - name: Run Nix Checks
+        run: nix flake check

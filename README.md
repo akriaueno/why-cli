@@ -79,6 +79,25 @@ Simply run `why` followed by the command name.
 why <command_name>
 ```
 
+### Shell Completion
+
+`why` can print completion scripts for bash, zsh, and fish:
+
+```bash
+why --completion bash
+why --completion zsh
+why --completion fish
+```
+
+The generated completion delegates `why <TAB>` and `why l<TAB>` to the shell's
+native command completion instead of invoking `why` on every tab press.
+
+For one-off bash usage:
+
+```bash
+source <(why --completion bash)
+```
+
 ## Examples
 
 ### 1. Version Managers (e.g., Mise, Volta)

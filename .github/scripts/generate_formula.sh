@@ -25,6 +25,7 @@ class Why < Formula
 
   def install
     system "cargo", "install", "--locked", *std_cargo_args
+    generate_completions_from_executable(bin/"why", "--completion")
   end
 
   test do

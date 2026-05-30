@@ -1,6 +1,6 @@
 [package]
 name = "why-cli"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["akira ueno"]
 description = "Tells you why a command is installed on your system."

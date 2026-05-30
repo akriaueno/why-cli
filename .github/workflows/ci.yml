@@ -39,6 +39,13 @@ jobs:
       - name: Run Tests
         run: cargo +stable test --locked
 
+      - name: Check CLI Version
+        shell: bash
+        run: |
+          expected="why $(cargo +stable metadata --locked --no-deps --format-version 1 | python3 -c 'import json, sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          actual="$(cargo +stable run --locked -- --version)"
+          test "$actual" = "$expected"
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15

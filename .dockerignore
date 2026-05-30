@@ -6,11 +6,9 @@
 .vscode
 
 # Local build artifacts
+target/
 why
 why.exe
-tests/test_why_core
-tests/test_why_core.exe
-nimcache/
 
 # Editor/OS noise
 Thumbs.db

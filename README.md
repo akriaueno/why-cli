@@ -108,7 +108,7 @@ Even if the command name (e.g., `steam`) differs from the Flatpak ID, `why` can 
 
 ```bash
 $ why steam
-Hint: Command 'steam' not found in PATH, but found 'com.valvesoftware.Steam' in Flatpak.
+Hint: command 'steam' was not found in PATH, but found 'com.valvesoftware.Steam' in Flatpak.
 Command:     steam
 Provider:    Flatpak
 Origin Path: /var/lib/flatpak/exports/bin/com.valvesoftware.Steam
@@ -128,22 +128,22 @@ Real Path:   /var/lib/flatpak/app/com.valvesoftware.Steam/current/active/export/
 
 ### Build from Source
 
-Requirements: [Nim](https://nim-lang.org/) compiler (`nim` and `nimble`).
+Requirements: [Rust](https://www.rust-lang.org/) toolchain (`cargo` and `rustc`).
 
 ```bash
-git clone [https://github.com/akriaueno/why-cli.git](https://github.com/akriaueno/why-cli.git)
+git clone https://github.com/akriaueno/why-cli.git
 cd why-cli
-nimble build -d:release
-# The binary is created as './why'
-# Add it to your PATH (e.g., cp why /usr/local/bin/)
+cargo build --release
+# The binary is created as './target/release/why'
+# Add it to your PATH (e.g., cp target/release/why /usr/local/bin/)
 ```
 
-If you change dependencies, run `nimble lock` to update `nimble.lock`.
+If you change dependencies, run `cargo update` or `cargo generate-lockfile` to update `Cargo.lock`.
 
 ### Testing
 
 ```bash
-nimble test
+cargo test
 ```
 
 ## License

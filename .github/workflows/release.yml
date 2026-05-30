@@ -16,42 +16,48 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
             target_os: linux
             cpu: amd64
             archive_name: why-linux-amd64
-          - os: ubuntu-24.04
+            install_cross: ''
+            linker_env: ''
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
             target_os: linux
             cpu: arm64
             archive_name: why-linux-arm64
-            install_cross: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
-            nim_flags: --cpu:arm64 --os:linux --gcc.exe:aarch64-linux-gnu-gcc --gcc.linkerexe:aarch64-linux-gnu-gcc
+            install_cross: ''
+            linker_env: ''
           - os: macos-15-intel
+            target: x86_64-apple-darwin
             target_os: darwin
             cpu: amd64
             archive_name: why-darwin-amd64
+            install_cross: ''
+            linker_env: ''
           - os: macos-15
+            target: aarch64-apple-darwin
             target_os: darwin
             cpu: arm64
             archive_name: why-darwin-arm64
+            install_cross: ''
+            linker_env: ''
 
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Cache Nimble dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          path: ~/.nimble
-          key: ${{ runner.os }}-nimble-${{ hashFiles('nimble.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-nimble-
+          persist-credentials: false
 
-      - name: Install Nim
-        uses: jiro4989/setup-nim-action@v2
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
-          nim-version: '2.2.6'
+          targets: ${{ matrix.target }}
 
-      - name: Install Dependencies
-        run: nimble install -y --depsOnly
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          save-if: "false"
 
       - name: Install Cross-compiler (Linux ARM64 only)
         if: matrix.install_cross != ''
@@ -60,14 +66,14 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          nimble build -d:release ${{ matrix.nim_flags }}
-          mv why ${{ matrix.archive_name }}
+          ${{ matrix.linker_env }} cargo build --release --locked --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/why ${{ matrix.archive_name }}
 
       - name: Create Archive
         run: tar czf ${{ matrix.archive_name }}.tar.gz ${{ matrix.archive_name }}
 
       - name: Release to GitHub
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: ${{ matrix.archive_name }}.tar.gz
@@ -80,13 +86,16 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-')
     steps:
       - name: Checkout why-cli repository (for scripts)
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Checkout tap repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           repository: akriaueno/homebrew-tap
           token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          persist-credentials: false
           path: homebrew-tap
 
       - name: Ensure Formula directory exists
@@ -105,8 +114,8 @@ jobs:
           # Calculate SHA256 hash
           SHA256=$(sha256sum source.tar.gz | awk '{print $1}')
           
-          echo "sha=$SHA256" >> $GITHUB_OUTPUT
-          echo "url=$SOURCE_URL" >> $GITHUB_OUTPUT
+          echo "sha=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "url=$SOURCE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Generate Formula
         run: |
@@ -123,7 +132,7 @@ jobs:
           echo "========================="
 
       - name: Create PR on tap repository
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }} # fine-grained PAT (homebrew-tap, contents:write & pull-requests:write)
           path: homebrew-tap

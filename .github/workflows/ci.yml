@@ -22,26 +22,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nim
-        uses: jiro4989/setup-nim-action@v2
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          nim-version: '2.2.6'
+          components: clippy, rustfmt
 
-      - name: Cache Nimble and Nim
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.nimble
-            ~/.cache/nim
-          key: ${{ runner.os }}-nim-2.2.6-nimble-${{ hashFiles('nimble.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-nim-2.2.6-nimble-
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
 
-      - name: Install Dependencies
-        run: nimble install -y --depsOnly
+      - name: Check Formatting
+        run: cargo fmt --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Run Tests
-        run: nimble test
+        run: cargo test --locked
 
   e2e:
     runs-on: ubuntu-latest

@@ -1,5 +1,6 @@
 {
   lib,
+  installShellFiles,
   rustPlatform,
 }:
 
@@ -9,6 +10,17 @@ rustPlatform.buildRustPackage {
 
   src = lib.cleanSource ../.;
   cargoLock.lockFile = ../Cargo.lock;
+
+  nativeBuildInputs = [
+    installShellFiles
+  ];
+
+  postInstall = ''
+    installShellCompletion --cmd why \
+      --bash completions/why.bash \
+      --fish completions/why.fish \
+      --zsh completions/_why
+  '';
 
   meta = {
     description = "Tells you why a command is installed on your system";

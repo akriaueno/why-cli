@@ -1,0 +1,11 @@
+#compdef why
+
+_why() {
+    _arguments \
+        '--completion[print a shell completion script]:shell:(bash zsh fish)' \
+        '--help[show help]' \
+        '--version[show version]' \
+        '1:command:_path_commands'
+}
+
+_why "$@"

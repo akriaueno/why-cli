@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, ExitCode};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum, ValueHint};
 
 use crate::core::{DirEntryKind, ExecResult, WhyCtx, why_core};
 
@@ -16,8 +16,20 @@ use crate::core::{DirEntryKind, ExecResult, WhyCtx, why_core};
     about = "Identify why a command is installed on your system"
 )]
 struct Args {
+    /// Print a shell completion script.
+    #[arg(long, value_enum, value_name = "SHELL", conflicts_with = "command")]
+    completion: Option<CompletionShell>,
+
     /// The command to investigate, for example 'node' or 'ls'.
-    command: String,
+    #[arg(value_hint = ValueHint::CommandName, required_unless_present = "completion")]
+    command: Option<String>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+enum CompletionShell {
+    Bash,
+    Zsh,
+    Fish,
 }
 
 struct DefaultCtx;
@@ -126,9 +138,18 @@ impl WhyCtx for DefaultCtx {
 
 fn main() -> ExitCode {
     let args = Args::parse();
+    if let Some(shell) = args.completion {
+        print!("{}", completion_script(shell));
+        return ExitCode::SUCCESS;
+    }
+
+    let Some(command) = args.command else {
+        return ExitCode::from(2);
+    };
+
     let ctx = DefaultCtx;
 
-    match why_core(&args.command, &ctx) {
+    match why_core(&command, &ctx) {
         Ok(result) => {
             if !result.hint.is_empty() {
                 println!("{}", result.hint);
@@ -143,5 +164,47 @@ fn main() -> ExitCode {
             eprintln!("Error: {}", err.msg);
             ExitCode::from(err.code as u8)
         }
+    }
+}
+
+fn completion_script(shell: CompletionShell) -> &'static str {
+    match shell {
+        CompletionShell::Bash => BASH_COMPLETION,
+        CompletionShell::Zsh => ZSH_COMPLETION,
+        CompletionShell::Fish => FISH_COMPLETION,
+    }
+}
+
+const BASH_COMPLETION: &str = include_str!("../completions/why.bash");
+const ZSH_COMPLETION: &str = include_str!("../completions/_why");
+const FISH_COMPLETION: &str = include_str!("../completions/why.fish");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_completion_without_command() {
+        let args = Args::try_parse_from(["why", "--completion", "bash"]).unwrap();
+
+        assert_eq!(args.completion, Some(CompletionShell::Bash));
+        assert_eq!(args.command, None);
+    }
+
+    #[test]
+    fn requires_command_without_completion() {
+        assert!(Args::try_parse_from(["why"]).is_err());
+    }
+
+    #[test]
+    fn completion_conflicts_with_command() {
+        assert!(Args::try_parse_from(["why", "--completion", "bash", "ls"]).is_err());
+    }
+
+    #[test]
+    fn completion_scripts_use_shell_native_command_completion() {
+        assert!(completion_script(CompletionShell::Bash).contains("compgen -c"));
+        assert!(completion_script(CompletionShell::Zsh).contains("_path_commands"));
+        assert!(completion_script(CompletionShell::Fish).contains("__fish_complete_command"));
     }
 }

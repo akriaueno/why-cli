@@ -108,7 +108,7 @@ Even if the command name (e.g., `steam`) differs from the Flatpak ID, `why` can 
 
 ```bash
 $ why steam
-Hint: Command 'steam' not found in PATH, but found 'com.valvesoftware.Steam' in Flatpak.
+Hint: command 'steam' was not found in PATH, but found 'com.valvesoftware.Steam' in Flatpak.
 Command:     steam
 Provider:    Flatpak
 Origin Path: /var/lib/flatpak/exports/bin/com.valvesoftware.Steam

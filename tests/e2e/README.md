@@ -26,6 +26,6 @@ Run a subset:
 ## Notes
 
 - The `why` binary is built once via `tests/e2e/Builder.Dockerfile` and copied into each distro image.
-- Alpine uses a glibc compatibility layer (`gcompat`/`libc6-compat`) to run the Ubuntu-built binary.
+- Alpine uses a glibc compatibility layer (`gcompat`/`libc6-compat`) to run the glibc-based builder binary.
 - Gentoo coverage is provided via a stage3 image with portage-utils (qfile).
 - Windows-only providers (Scoop/Chocolatey/winget) are covered by unit tests.

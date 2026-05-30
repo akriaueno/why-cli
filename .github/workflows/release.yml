@@ -57,6 +57,16 @@ jobs:
         with:
           save-if: "false"
 
+      - name: Verify Release Version
+        shell: bash
+        run: |
+          crate_version="$(cargo +stable metadata --locked --no-deps --format-version 1 | python3 -c 'import json, sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$crate_version" != "$tag_version" ]; then
+            echo "Release tag v${tag_version} does not match Cargo.toml version ${crate_version}" >&2
+            exit 1
+          fi
+
       - name: Install Cross-compiler (Linux ARM64 only)
         if: matrix.install_cross != ''
         run: ${{ matrix.install_cross }}
